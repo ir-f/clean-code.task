@@ -3,10 +3,13 @@ package com.endava.tech.courses.java;
 import java.math.BigDecimal;
 import java.util.Map;
 
+/**
+ * @author Alexandr Pumnea
+ */
 public class BalanceHandler {
 
-    public String processBalance(final Map<String, BigDecimal> map) {
-        BigDecimal balance = map.get("BALANCE");
+    public String processBalance(Map<String, BigDecimal> map) {
+        BigDecimal balance = map.getOrDefault("BALANCE", BigDecimal.ZERO);
         BigDecimal historicBalance = map.get("HISTORIC_BALANCE");
 
         if (balance == null) {
@@ -17,27 +20,67 @@ public class BalanceHandler {
         return calculateTrackingBalance(balance, historicBalance);
     }
 
-    //Feel free to make changes to the code below:
-    private String calculateTrackingBalance(final BigDecimal balance, final BigDecimal historicBalance) {
-        BigDecimal trackingBalance = BigDecimal.ZERO;
+    public String calculateTrackingBalance(BigDecimal balance, BigDecimal historicBalance) {
 
-        if ((historicBalance == null || historicBalance.equals(BigDecimal.ZERO))
-            || (isPositionInDebit(balance) && isPositionInCredit(historicBalance))
-            || (isPositionInCredit(balance) && isPositionInCredit(historicBalance))) {
-            trackingBalance = balance;
-        } else if ((isPositionInDebit(balance) && isPositionInDebit(historicBalance))
-            || (isPositionInCredit(balance) && isPositionInDebit(historicBalance))) {
-            trackingBalance = balance.add(historicBalance);
+        BigDecimal calculatedBalance;
+
+        if (shouldUseBalance(balance, historicBalance)) {
+            calculatedBalance = balance;
+        } else if (shouldAddBalances(balance, historicBalance)) {
+            calculatedBalance = balance.add(historicBalance);
+        } else {
+            calculatedBalance = historicBalance;
         }
 
-        return trackingBalance.toPlainString();
+        return calculatedBalance.toPlainString();
     }
 
-    private boolean isPositionInDebit(BigDecimal position) {
-        return position.signum() == -1;
+    private boolean shouldUseBalance(BigDecimal balance, BigDecimal historicBalance) {
+        boolean noHistoricBalance = historicBalance == null;
+        boolean historicBalanceIsZero = historicBalance != null && historicBalance.compareTo(BigDecimal.ZERO) == 0;
+        boolean balanceIsDebit = getPosition(balance) == BalancePosition.DEBIT;
+        boolean balanceIsCredit = getPosition(balance) == BalancePosition.CREDIT;
+
+        boolean historicBalanceIsCredit = getPosition(historicBalance) == BalancePosition.CREDIT;
+
+        return noHistoricBalance || historicBalanceIsZero || (balanceIsDebit && historicBalanceIsCredit) || (balanceIsCredit && historicBalanceIsCredit);
     }
 
-    private boolean isPositionInCredit(BigDecimal position) {
-        return position.signum() == 1 || position.signum() == 0;
+    private boolean shouldAddBalances(BigDecimal balance, BigDecimal historicBalance) {
+        boolean balanceIsDebit = getPosition(balance) == BalancePosition.DEBIT;
+        boolean historicBalanceIsDebit = getPosition(historicBalance) == BalancePosition.DEBIT;
+        boolean balanceIsCredit = getPosition(balance) == BalancePosition.CREDIT;
+
+        return (balanceIsDebit && historicBalanceIsDebit) || (balanceIsCredit && historicBalanceIsDebit);
     }
+
+    private BalancePosition getPosition(BigDecimal balance) {
+        if (balance == null) {
+            return BalancePosition.ZERO;
+        } else if (balance.signum() == -1) {
+            return BalancePosition.DEBIT;
+        } else {
+            return BalancePosition.CREDIT;
+        }
+    }
+
+    private enum BalancePosition {
+
+        /**
+         * A debit position.
+         */
+        DEBIT,
+
+        /**
+         * A credit position.
+         */
+        CREDIT,
+
+        /**
+         * A zero position.
+         */
+        ZERO
+    }
+
 }
+
